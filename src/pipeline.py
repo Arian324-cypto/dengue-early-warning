@@ -58,9 +58,9 @@ def feature_columns(feats: pd.DataFrame):
 
 # groups used for the dashboard's "main drivers" explanation
 DRIVER_GROUPS = {
-    "Rainfall (2-4 week breeding lag)": lambda c: c.startswith("rain_"),
+    "Rainfall (2-4 wk lag)": lambda c: c.startswith("rain_"),
     "Temperature": lambda c: c.startswith("temp_") or c in ("max_temp_now", "min_temp_now"),
     "Humidity": lambda c: c.startswith("hum_"),
     "Season (time of year)": lambda c: c.startswith("week_"),
-    "Ward vulnerability (drainage, crowding, sanitation)": lambda c: c in STATIC_COLS,
+    "Ward vulnerability": lambda c: c in STATIC_COLS,
 }
