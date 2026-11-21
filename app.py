@@ -81,8 +81,9 @@ HERO = f"""
 def style_fig(fig, height=330):
     fig.update_layout(height=height, margin=dict(l=0, r=10, t=10, b=0), paper_bgcolor="rgba(0,0,0,0)",
                       plot_bgcolor="rgba(0,0,0,0)", font=dict(color=INK, family="Source Sans 3, sans-serif"))
-    fig.update_xaxes(gridcolor="#1F4B4D", zerolinecolor="#2B6466")
-    fig.update_yaxes(gridcolor="#1F4B4D", zerolinecolor="#2B6466")
+    fig.update_xaxes(gridcolor="#1F4B4D", zerolinecolor="#2B6466", fixedrange=True)
+    fig.update_yaxes(gridcolor="#1F4B4D", zerolinecolor="#2B6466", fixedrange=True)
+    fig.update_layout(dragmode=False)       # charts stay fixed: no drag, pan or zoom
     return fig
  
  
