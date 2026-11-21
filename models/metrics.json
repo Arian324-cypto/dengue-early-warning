@@ -1,0 +1,81 @@
+{
+  "rows": {
+    "train": 21420,
+    "val": 3120,
+    "test": 6060
+  },
+  "split": {
+    "train": "2016-01 .. 2022-12",
+    "val": "2023",
+    "test": "2024-01 .. 2025-12 (last target week)"
+  },
+  "tier_thresholds_weekly_cases": [
+    1.0,
+    7.333333333333333,
+    13.666666666666666
+  ],
+  "features": [
+    "population_density_sqkm",
+    "water_logging_risk_index",
+    "sanitation_score",
+    "rain_lag0w",
+    "rain_lag1w",
+    "rain_lag2w",
+    "rain_lag3w",
+    "rain_lag4w",
+    "rain_lag5w",
+    "rain_lag6w",
+    "rain_lag7w",
+    "rain_lag8w",
+    "rain_sum2w",
+    "rain_sum4w",
+    "rain_sum8w",
+    "rain_breed_2_4w",
+    "temp_now",
+    "temp_lag1w",
+    "temp_lag2w",
+    "temp_lag4w",
+    "temp_mean4w",
+    "hum_now",
+    "hum_lag1w",
+    "hum_lag2w",
+    "hum_lag4w",
+    "hum_mean4w",
+    "max_temp_now",
+    "min_temp_now",
+    "week_sin",
+    "week_cos"
+  ],
+  "validation_2023": {
+    "MAE": 0.871597404194254,
+    "RMSE": 1.6608104996928585
+  },
+  "test_2024_2025": {
+    "model": {
+      "MAE": 0.8298018051794636,
+      "RMSE": 1.5774016272445268
+    },
+    "baseline_ward_mean": {
+      "MAE": 2.948851355723807,
+      "RMSE": 3.4655789970711206
+    },
+    "baseline_ward_seasonal_mean": {
+      "MAE": 0.9131044056786631,
+      "RMSE": 1.7032519773895902
+    },
+    "interval_80pct_coverage": 0.9245874587458746,
+    "tier_accuracy": 0.8283828382838284,
+    "tier_within_one": 0.9985148514851485,
+    "critical_recall": 0.33962264150943394
+  },
+  "test_by_year": {
+    "2024": {
+      "MAE": 0.6748357985308293,
+      "RMSE": 1.2701113071246104
+    },
+    "2025": {
+      "MAE": 1.0009101041873303,
+      "RMSE": 1.8585898576791535
+    }
+  }
+}
