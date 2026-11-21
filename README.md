@@ -40,4 +40,4 @@ No external APIs are called; no API key is needed.
 * No other AI assistants and no external APIs were used.
 
 ## Team
-Arian (team leader), Tajun, Sami. Each member's work is in the Git history.
+Mohammad Arian Sunbeam Dip (team leader), Tajun Pasha,Muhammad Imran Sami. Each member's work is in the Git history.
