@@ -14,9 +14,8 @@ try:
 except Exception:
     pass
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 CSV_PATH = Path(__file__).parent / "data" / "dengue_weekly.csv"
-API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
+BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 SYSTEM_PROMPT = """You are the AI Guide of a Dengue Early Warning dashboard for Chattogram city.
 Rules:
@@ -26,6 +25,8 @@ Rules:
 4. Prevention tips are allowed: remove stagnant water, use mosquito nets, keep drains clean.
 5. Keep answers short (3-6 sentences), simple words, no markdown symbols like ** or #.
 """
+
+_PICKED = None
 
 
 def _get_key():
@@ -39,7 +40,6 @@ def _get_key():
     if not key:
         raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি।")
     return key
-_PICKED = None
 
 
 def _pick_model():
@@ -51,27 +51,33 @@ def _pick_model():
         _PICKED = env
         return env
     r = requests.get(
-        "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",
+        BASE + "/models?pageSize=100",
         headers={"x-goog-api-key": _get_key()},
         timeout=30,
     )
     if not r.ok:
         raise RuntimeError(f"Model list {r.status_code}: {r.text[:300]}")
-    names = [
-        m["name"].split("/")[-1]
-        for m in r.json().get("models", [])
-        if "generateContent" in m.get("supportedGenerationMethods", [])
-    ]
+    names = []
+    for m in r.json().get("models", []):
+        if "generateContent" in m.get("supportedGenerationMethods", []):
+            names.append(m["name"].split("/")[-1])
     bad = ("image", "tts", "live", "audio", "embedding", "thinking", "exp", "8b", "robotics")
     flash = [n for n in names if "flash" in n and not any(b in n for b in bad)]
-    prefer = [n for n in flash if n.endswith("-latest")] or [n for n in flash if "lite" not in n] or flash or names
+    latest = [n for n in flash if n.endswith("-latest")]
+    nolite = [n for n in flash if "lite" not in n]
+    prefer = latest or nolite or flash or names
     if not prefer:
         raise RuntimeError("এই key-তে কোনো model চালু নেই।")
     _PICKED = prefer[0]
     return _PICKED
 
-def _call    r = requests.post(
-        API_URL.format(_pick_model()),
+
+def _call(contents, system=None):
+    body = {"contents": contents, "generationConfig": {"temperature": 0.2}}
+    if system:
+        body["system_instruction"] = {"parts": [{"text": system}]}
+    r = requests.post(
+        f"{BASE}/models/{_pick_model()}:generateContent",
         headers={"x-goog-api-key": _get_key(), "Content-Type": "application/json"},
         json=body,
         timeout=60,
