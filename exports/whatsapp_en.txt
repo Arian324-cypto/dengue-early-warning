@@ -1,0 +1,49 @@
+*DENGUE ALERT: DSCC_Ward_04 (Dhaka South)*
+Risk level: *Critical*
+Forecast: ~15 cases/week (likely 0-17), 14 Jul-28 Jul
+Saline bags: 36 allocated / 36 required
+Diagnostic kits: 17 allocated / 17 required
+Hospital beds: 5 allocated / 5 required
+Spraying crews assigned: 3
+
+---
+
+*DENGUE ALERT: DNCC_Ward_12 (Dhaka North)*
+Risk level: *Critical*
+Forecast: ~15 cases/week (likely 0-17), 14 Jul-28 Jul
+Saline bags: 36 allocated / 36 required
+Diagnostic kits: 18 allocated / 18 required
+Hospital beds: 5 allocated / 5 required
+Spraying crews assigned: 3
+
+---
+
+*DENGUE ALERT: CCC_Ward_03 (Chattogram)*
+Risk level: *Critical*
+Forecast: ~14 cases/week (likely 0-16), 14 Jul-28 Jul
+Saline bags: 35 allocated / 35 required
+Diagnostic kits: 17 allocated / 17 required
+Hospital beds: 5 allocated / 5 required
+Spraying crews assigned: 3
+ALERT: 1 patients to be routed to other wards in Chattogram
+
+---
+
+*DENGUE ALERT: DNCC_Ward_19 (Dhaka North)*
+Risk level: *Critical*
+Forecast: ~15 cases/week (likely 0-15), 14 Jul-28 Jul
+Saline bags: 35 allocated / 35 required
+Diagnostic kits: 17 allocated / 17 required
+Hospital beds: 5 allocated / 5 required
+Spraying crews assigned: 3
+ALERT: 1 patients to be routed to other wards in Dhaka North
+
+---
+
+*DENGUE ALERT: GCC_Ward_02 (Gazipur)*
+Risk level: *Critical*
+Forecast: ~14 cases/week (likely 0-15), 14 Jul-28 Jul
+Saline bags: 35 allocated / 35 required
+Diagnostic kits: 17 allocated / 17 required
+Hospital beds: 5 allocated / 5 required
+Spraying crews assigned: 0

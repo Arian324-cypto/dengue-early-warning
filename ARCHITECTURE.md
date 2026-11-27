@@ -76,4 +76,64 @@ change in forecast is shown. Red bars push risk up, green down.
 ## 7. Production path (for the Onsite Final)
 Swap the CSV for a weather feed, retrain on a schedule, keep `build_features` unchanged (it already accepts a new CSV without `dengue_cases` via the dashboard upload).
 
-Team DEBUG: Mohammad Arian Sunbeam Dip (team leader), Tajun Pasha, Imran Sami.
+---
+
+# Phase 2 (onsite final): operations layer
+
+Phase 2 extends the same repository and the same saved model. Forecasts feed an operations layer that turns predicted
+cases into supplies, beds, spraying crews and dispatch notices. Everything runs locally: no network, no LLM.
+
+## Data flow
+
+```
+weekly weather + ward traits --> Phase 1 features --> saved HistGradientBoosting model --> predicted cases + risk tier
+        |                                                                                          |
+        |                       +---------------- src/ops.py ------------------------------------+--+
+        |                       |  1 allocate(): supplies under scarcity, priority order          |
+        |                       |  2 route_overflow(): same-city bed transfers                     |
+        |                       |  3 plan_crews()/simulate(): model re-run with crews deployed     |
+        |                       +-----------------------------------------------------------------+
+        +--> src/dispatch.py: SMS (en/bn), WhatsApp (en/bn), printable HTML brief --> /exports
+```
+
+Files: `src/ops.py` (math), `src/dispatch.py` (templates), `src/export.py` (CLI + orchestration),
+`src/offline_check.py` (kill-switch test), `ops_ui.py` (dashboard tabs), `app.py`.
+
+## 1. Constrained resource allocation
+Demand per ward = ceil(predicted weekly cases x supply-per-case ratio). The ratios (saline 2.38, kits 1.15, beds 0.29 per case)
+are fitted from the onsite dataset (sum of supply columns / sum of cases), so they match how the dataset defines need.
+Regional stock = slider (30% to 100%) x total demand. Wards are served in strict priority order: risk tier first
+(Critical > High > Medium > Low), then expected cases x population density (relative to the median ward). Each ward receives
+min(need, stock left). Any ward that cannot be fully served is flagged "Deficit", and "CRITICAL DEFICIT" if it is High or Critical.
+Spraying crews follow the same order (Critical/High: enough crews to cover the ward's density, Medium: 1, Low: 0).
+Why strict priority and not proportional sharing: with scarce saline, spreading it thinly leaves every outbreak ward under-supplied.
+
+## 2. Hospital surge and overflow routing
+The dataset has no bed capacity. Default capacity is a stated planning assumption: each ward's 95th-percentile weekly bed need in the
+training years x a fixed facility-size multiplier (0.5 to 1.7, seeded by ward id so results are reproducible) x the officer's slider.
+A real bed census can be uploaded as CSV (ward_id, bed_capacity) and replaces the assumption. Wards over capacity send patients
+only to wards in the same city, most free beds first. Output: net deficit and headroom per ward, transfers, city-wide utilisation,
+and patients that cannot be placed anywhere in the city.
+
+## 3. What-if vector control simulator
+Counterfactual, not a fixed percentage: crews reduce the rain-driven breeding signal fed to the saved model (all `rain_*` features
+x (1 - 0.60 x coverage)), and the model is re-run. Coverage = crews / crews needed for the ward's density (1 to 3 crews).
+The effect builds up over the forecast window: 60% in week 2, 85% in week 3, 100% in week 4. Beds and saline saved are
+cases prevented x the same supply ratios. ROI = cases prevented per crew. The best deployment adds crews one at a time
+where the marginal cases prevented is highest (diminishing returns, so crews spread across wards). Assumptions
+(60% maximum cut, ramp, density per crew) are stated constants in `src/ops.py`; they are planning assumptions, not measured effects.
+
+## 4. Dispatch notices
+Deterministic templates fill predicted cases (with 80% range), allocated vs required supplies, deficit alerts, overflow transfers
+and assigned crews. SMS is kept near 160 characters (English), WhatsApp is multi-line, and the commissioner brief is a
+self-contained HTML page (Print to PDF). English and Bangla. `python src/export.py` writes samples to `/exports`.
+
+## 5. Offline resilience
+Nothing in the forecast, allocation, routing, simulator or notices calls a network. The model is a local joblib file, fonts are system
+fonts, and no API keys exist. `python src/offline_check.py` (also a button in the dashboard sidebar) blocks all socket connections and runs
+the entire pipeline; it passes in about 2 seconds.
+
+## Limitations (honest)
+Bed capacity and intervention efficacy are assumptions (stated above) because the data has neither. The simulator predicts the effect
+of fewer breeding sites through the model's rainfall dependence; it is a planning tool, not a causal estimate. Critical-tier recall
+from Phase 1 (about 34%) still applies, so High and Critical are treated together for alerts.

@@ -1,0 +1,9 @@
+DENGUE CRITICAL DSCC_Ward_04: ~15 cases/wk 14 Jul-28 Jul. Saline 36/36, Kits 17/17, Beds 5/5. Crews 3.
+
+DENGUE CRITICAL DNCC_Ward_12: ~15 cases/wk 14 Jul-28 Jul. Saline 36/36, Kits 18/18, Beds 5/5. Crews 3.
+
+DENGUE CRITICAL CCC_Ward_03: ~14 cases/wk 14 Jul-28 Jul. Saline 35/35, Kits 17/17, Beds 5/5. Crews 3.
+
+DENGUE CRITICAL DNCC_Ward_19: ~15 cases/wk 14 Jul-28 Jul. Saline 35/35, Kits 17/17, Beds 5/5. Crews 3.
+
+DENGUE CRITICAL GCC_Ward_02: ~14 cases/wk 14 Jul-28 Jul. Saline 35/35, Kits 17/17, Beds 5/5. Crews 0.

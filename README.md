@@ -39,5 +39,21 @@ No external APIs are called; no API key is needed.
 * **Claude (Anthropic, Claude Sonnet 5.5)**: used by the team for guidance and to generate/explain the code, README and ARCHITECTURE.md. The team reviewed, ran and understands the code.
 * No other AI assistants and no external APIs were used.
 
+## Phase 2 (onsite final): operations command system
+
+The same app now turns the forecast into action. Tabs: **Forecast**, **Resource allocation** (saline, kits, beds, crews under a
+30% to 100% stock slider, deficit alerts), **Hospital overflow** (same-city patient routing, net deficits, utilisation),
+**What-if simulator** (deploy crews, see weeks 2 to 4, ROI per crew), **Dispatch notices** (SMS, WhatsApp, printable brief, English and Bangla).
+
+```
+streamlit run app.py                 # dashboard
+python src/export.py                 # writes sample SMS / WhatsApp / HTML briefs to exports/
+python src/offline_check.py          # offline kill-switch test (blocks the network, runs everything)
+python tests/test_ops.py             # checks on allocation, routing and the simulator
+```
+
+Everything runs locally with no API keys; details and stated assumptions are in `ARCHITECTURE.md`.
+Commit messages for this phase start with `version-onsite-final:`.
+
 ## Team
-Mohammad Arian Sunbeam Dip (team leader), Tajun Pasha,Muhammad Imran Sami. Each member's work is in the Git history.
+Arian (team leader), Tajun, Sami. Each member's work is in the Git history.
