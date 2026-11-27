@@ -73,19 +73,35 @@ def _pick_model():
 
 
 def _call(contents, system=None):
+    def _call(contents, system=None):
+    import time
+
     body = {"contents": contents, "generationConfig": {"temperature": 0.2}}
     if system:
         body["system_instruction"] = {"parts": [{"text": system}]}
-    r = requests.post(
-        f"{BASE}/models/{_pick_model()}:generateContent",
-        headers={"x-goog-api-key": _get_key(), "Content-Type": "application/json"},
-        json=body,
-        timeout=60,
-    )
-    if not r.ok:
-        raise RuntimeError(f"{r.status_code}: {r.text[:300]}")
-    parts = r.json()["candidates"][0]["content"]["parts"]
-    return "".join(p.get("text", "") for p in parts).strip()
+    models = [_pick_model(), "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash"]
+    seen = []
+    last = "unknown error"
+    for model in models:
+        if model in seen:
+            continue
+        seen.append(model)
+        for attempt in range(3):
+            r = requests.post(
+                f"{BASE}/models/{model}:generateContent",
+                headers={"x-goog-api-key": _get_key(), "Content-Type": "application/json"},
+                json=body,
+                timeout=60,
+            )
+            if r.ok:
+                parts = r.json()["candidates"][0]["content"]["parts"]
+                return "".join(p.get("text", "") for p in parts).strip()
+            last = f"{r.status_code}: {r.text[:200]}"
+            if r.status_code in (429, 500, 503):
+                time.sleep(2 * (attempt + 1))
+                continue
+            break
+    raise RuntimeError(last)
 
 
 def load_data():
