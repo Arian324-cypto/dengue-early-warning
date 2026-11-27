@@ -35,11 +35,17 @@ def _get_key():
     return key
 
 
+_CLIENT = None
+
+
 def _client():
-    key = _get_key()
-    if not key:
-        raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি। .env ফাইল দেখো।")
-    return genai.Client(api_key=key)
+    global _CLIENT
+    if _CLIENT is None:
+        key = _get_key()
+        if not key:
+            raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি। .env ফাইল দেখো।")
+        _CLIENT = genai.Client(api_key=key)
+    return _CLIENT
 
 
 def load_data():
