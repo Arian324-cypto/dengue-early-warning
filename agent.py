@@ -104,19 +104,31 @@ def build_context(question: str) -> str:
 
 
 def ask_agent(question: str, history=None) -> str:
+    import requests
+
+    key = _get_key()
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি।")
     context = build_context(question)
     contents = []
     for m in (history or [])[-6:]:
         role = "user" if m["role"] == "user" else "model"
-        contents.append(types.Content(role=role, parts=[types.Part(text=m["content"])]))
-    contents.append(types.Content(role="user", parts=[types.Part(
-        text=f"DATA CONTEXT:\n{context}\n\nUSER QUESTION:\n{question}")]))
-    resp = _client().models.generate_content(
-        model=MODEL,
-        contents=contents,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, temperature=0.2),
+        contents.append({"role": role, "parts": [{"text": m["content"]}]})
+    contents.append({"role": "user", "parts": [{
+        "text": f"DATA CONTEXT:\n{context}\n\nUSER QUESTION:\n{question}"}]})
+    r = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent",
+        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+        json={
+            "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": contents,
+            "generationConfig": {"temperature": 0.2},
+        },
+        timeout=60,
     )
-    return (resp.text or "").strip()
+    r.raise_for_status()
+    parts = r.json()["candidates"][0]["content"]["parts"]
+    return "".join(p.get("text", "") for p in parts).strip()
 
 
 def transcribe(audio_bytes: bytes) -> str:
