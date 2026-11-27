@@ -39,19 +39,45 @@ def _get_key():
     if not key:
         raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি।")
     return key
+_PICKED = None
 
 
-def _call(contents, system=None):
-    body = {"contents": contents, "generationConfig": {"temperature": 0.2}}
-    if system:
-        body["system_instruction"] = {"parts": [{"text": system}]}
-    r = requests.post(
-        API_URL.format(MODEL),
+def _pick_model():
+    global _PICKED
+    if _PICKED:
+        return _PICKED
+    env = os.getenv("GEMINI_MODEL")
+    if env:
+        _PICKED = env
+        return env
+    r = requests.get(
+        "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",
+        headers={"x-goog-api-key": _get_key()},
+        timeout=30,
+    )
+    if not r.ok:
+        raise RuntimeError(f"Model list {r.status_code}: {r.text[:300]}")
+    names = [
+        m["name"].split("/")[-1]
+        for m in r.json().get("models", [])
+        if "generateContent" in m.get("supportedGenerationMethods", [])
+    ]
+    bad = ("image", "tts", "live", "audio", "embedding", "thinking", "exp", "8b", "robotics")
+    flash = [n for n in names if "flash" in n and not any(b in n for b in bad)]
+    prefer = [n for n in flash if n.endswith("-latest")] or [n for n in flash if "lite" not in n] or flash or names
+    if not prefer:
+        raise RuntimeError("এই key-তে কোনো model চালু নেই।")
+    _PICKED = prefer[0]
+    return _PICKED
+
+def _call    r = requests.post(
+        API_URL.format(_pick_model()),
         headers={"x-goog-api-key": _get_key(), "Content-Type": "application/json"},
         json=body,
         timeout=60,
     )
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(f"{r.status_code}: {r.text[:300]}")
     parts = r.json()["candidates"][0]["content"]["parts"]
     return "".join(p.get("text", "") for p in parts).strip()
 
