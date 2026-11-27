@@ -1,18 +1,22 @@
+import base64
 import os
 import re
+import time
 from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+import requests
 from gtts import gTTS
 
-load_dotenv(Path(__file__).parent / ".env")
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except Exception:
+    pass
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 CSV_PATH = Path(__file__).parent / "data" / "dengue_weekly.csv"
+BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 SYSTEM_PROMPT = """You are the AI Guide of a Dengue Early Warning dashboard for Chattogram city.
 Rules:
@@ -23,6 +27,8 @@ Rules:
 5. Keep answers short (3-6 sentences), simple words, no markdown symbols like ** or #.
 """
 
+_PICKED = None
+
 
 def _get_key():
     key = os.getenv("GEMINI_API_KEY")
@@ -32,25 +38,72 @@ def _get_key():
             key = st.secrets.get("GEMINI_API_KEY")
         except Exception:
             key = None
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি।")
     return key
 
 
-_CLIENT = None
+def _pick_model():
+    global _PICKED
+    if _PICKED:
+        return _PICKED
+    env = os.getenv("GEMINI_MODEL")
+    if env:
+        _PICKED = env
+        return env
+    r = requests.get(
+        BASE + "/models?pageSize=100",
+        headers={"x-goog-api-key": _get_key()},
+        timeout=30,
+    )
+    if not r.ok:
+        raise RuntimeError(f"Model list {r.status_code}: {r.text[:300]}")
+    names = []
+    for m in r.json().get("models", []):
+        if "generateContent" in m.get("supportedGenerationMethods", []):
+            names.append(m["name"].split("/")[-1])
+    bad = ("image", "tts", "live", "audio", "embedding", "thinking", "exp", "8b", "robotics")
+    flash = [n for n in names if "flash" in n and not any(b in n for b in bad)]
+    latest = [n for n in flash if n.endswith("-latest")]
+    nolite = [n for n in flash if "lite" not in n]
+    prefer = latest or nolite or flash or names
+    if not prefer:
+        raise RuntimeError("এই key-তে কোনো model চালু নেই।")
+    _PICKED = prefer[0]
+    return _PICKED
 
 
-def _client():
-    global _CLIENT
-    if _CLIENT is None:
-        key = _get_key()
-        if not key:
-            raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি। .env ফাইল দেখো।")
-        _CLIENT = genai.Client(api_key=key)
-    return _CLIENT
+def _call(contents, system=None):
+    body = {"contents": contents, "generationConfig": {"temperature": 0.2}}
+    if system:
+        body["system_instruction"] = {"parts": [{"text": system}]}
+    models = [_pick_model(), "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash"]
+    seen = []
+    last = "unknown error"
+    for model in models:
+        if model in seen:
+            continue
+        seen.append(model)
+        for attempt in range(3):
+            r = requests.post(
+                f"{BASE}/models/{model}:generateContent",
+                headers={"x-goog-api-key": _get_key(), "Content-Type": "application/json"},
+                json=body,
+                timeout=60,
+            )
+            if r.ok:
+                parts = r.json()["candidates"][0]["content"]["parts"]
+                return "".join(p.get("text", "") for p in parts).strip()
+            last = f"{r.status_code}: {r.text[:200]}"
+            if r.status_code in (429, 500, 503):
+                time.sleep(2 * (attempt + 1))
+                continue
+            break
+    raise RuntimeError(last)
 
 
 def load_data():
-    df = pd.read_csv(CSV_PATH, parse_dates=["date"])
-    return df
+    return pd.read_csv(CSV_PATH, parse_dates=["date"])
 
 
 def build_context(question: str) -> str:
@@ -59,9 +112,7 @@ def build_context(question: str) -> str:
     recent = df[df["date"] > last_date - pd.Timedelta(weeks=4)]
 
     lines = [f"Data covers {df['date'].min().date()} to {last_date.date()}, city Chattogram, weekly, ward-level."]
-
-    total_recent = int(recent["dengue_cases"].sum())
-    lines.append(f"Total dengue cases in the last 4 weeks (all wards): {total_recent}.")
+    lines.append(f"Total dengue cases in the last 4 weeks (all wards): {int(recent['dengue_cases'].sum())}.")
 
     last_week = df[df["date"] == last_date]
     lines.append(
@@ -88,7 +139,6 @@ def build_context(question: str) -> str:
     w = last_week[["avg_temp_c", "rainfall_mm", "relative_humidity_pct"]].mean()
     lines.append(f"Latest week average weather: temp={w.avg_temp_c:.1f}C, rainfall={w.rainfall_mm:.1f}mm, humidity={w.relative_humidity_pct:.0f}%.")
 
-    # প্রশ্নে নির্দিষ্ট ward নম্বর থাকলে তার শেষ ৮ সপ্তাহ যোগ করো
     m = re.search(r"ward[\s_]*0*(\d{1,2})|ওয়ার্ড[\s_]*0*(\d{1,2})", question, re.IGNORECASE)
     if m:
         num = int(m.group(1) or m.group(2))
@@ -104,11 +154,6 @@ def build_context(question: str) -> str:
 
 
 def ask_agent(question: str, history=None) -> str:
-    import requests
-
-    key = _get_key()
-    if not key:
-        raise RuntimeError("GEMINI_API_KEY পাওয়া যায়নি।")
     context = build_context(question)
     contents = []
     for m in (history or [])[-6:]:
@@ -116,31 +161,16 @@ def ask_agent(question: str, history=None) -> str:
         contents.append({"role": role, "parts": [{"text": m["content"]}]})
     contents.append({"role": "user", "parts": [{
         "text": f"DATA CONTEXT:\n{context}\n\nUSER QUESTION:\n{question}"}]})
-    r = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent",
-        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-        json={
-            "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-            "contents": contents,
-            "generationConfig": {"temperature": 0.2},
-        },
-        timeout=60,
-    )
-    r.raise_for_status()
-    parts = r.json()["candidates"][0]["content"]["parts"]
-    return "".join(p.get("text", "") for p in parts).strip()
+    return _call(contents, SYSTEM_PROMPT)
 
 
 def transcribe(audio_bytes: bytes) -> str:
-    """Gemini দিয়ে বাংলা/ইংরেজি কণ্ঠস্বর থেকে লেখা বানানো।"""
-    resp = _client().models.generate_content(
-        model=MODEL,
-        contents=[
-            types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
-            "Transcribe this speech exactly. It may be Bangla or English. Output only the transcript.",
-        ],
-    )
-    return (resp.text or "").strip()
+    data = base64.b64encode(audio_bytes).decode()
+    contents = [{"role": "user", "parts": [
+        {"inline_data": {"mime_type": "audio/wav", "data": data}},
+        {"text": "Transcribe this speech exactly. It may be Bangla or English. Output only the transcript."},
+    ]}]
+    return _call(contents)
 
 
 def speak(text: str) -> bytes:
